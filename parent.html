@@ -1,0 +1,153 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Parent Dashboard – PiggyChores</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+    <script src="parent.js" defer></script>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen">
+    <div class="bg-white shadow p-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold">🐷 Parent Dashboard</h1>
+        <button id="menu-toggle"
+                onclick="toggleSettings()"
+                class="text-3xl fixed top-3 right-3 z-50 bg-white rounded-full p-1 shadow">
+            ☰
+        </button>
+    </div>
+
+    <div class="bg-white p-4 mt-6 rounded-lg shadow max-w-5xl mx-auto">
+        <div id="calendar" class="max-h-[600px] overflow-auto text-sm"></div>
+    </div>
+
+    <section class="mt-6">
+        <div class="bg-white p-4 rounded-lg shadow max-w-5xl mx-auto space-y-4">
+            <div>
+                <label class="block font-medium">Select Child:</label>
+                <select id="child-select" class="w-full border rounded px-3 py-2">
+                    <option value="">-- No One (make public)</option>
+                </select>            </div>
+            <div>
+                <label class="block font-medium">Chore:</label>
+                <input type="text" id="chore" class="w-full border rounded px-3 py-2">
+            </div>
+            <div>
+                <label class="block font-medium">Reward ($):</label>
+                <input type="number" id="reward" class="w-full border rounded px-3 py-2">
+            </div>
+            <div>
+                <label class="inline-flex items-center">
+                    <input type="checkbox" id="is-recurring" class="mr-2"> Make this a recurring chore
+                </label>
+            </div>
+            <div id="recurring-options" class="space-y-2 hidden">
+                <label class="block font-medium">Frequency:</label>
+                <select id="recurring-frequency" class="w-full border rounded px-3 py-2">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="everyXDays">Every X Days</option>
+                </select>
+                <div id="custom-interval-container" class="hidden">
+                    <label class="block font-medium">Interval (days):</label>
+                    <input type="number" id="custom-interval" class="w-full border rounded px-3 py-2" min="1">
+                </div>
+            </div>
+            <button onclick="assignChore()" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded font-bold">Assign Chore</button>
+        </div>
+    </section>
+
+    <section class="mt-6">
+        <div class="bg-white p-4 rounded-lg shadow max-w-5xl mx-auto">
+            <h2 class="text-xl font-semibold mb-4">📜 Chore History</h2>
+            <div id="history-container" class="overflow-x-auto text-sm">
+                Loading...
+            </div>
+        </div>
+    </section>
+
+    <div id="settings-panel" class="fixed top-0 right-0 w-64 bg-white shadow-lg h-full transform translate-x-full transition-transform duration-300 z-40 overflow-y-auto">
+        <div class="p-6 space-y-4">
+            <h2 class="text-2xl font-bold">⚙️ Settings</h2>
+            <div>
+                <h3 class="text-lg font-semibold">Parent Info</h3>
+                <p id="parent-name" class="text-gray-700"></p>
+            </div>
+
+            <details class="border-t pt-4">
+                <summary class="text-lg font-semibold cursor-pointer select-none">📅 Set Next Payday</summary>
+                <div class="space-y-2 mt-2">
+                    <label class="block font-medium">One-Time Payday:</label>
+                    <input type="date" id="payday-date" class="w-full border rounded px-3 py-2">
+                    <label class="block font-medium">Or Pick a Recurring Day:</label>
+                    <select id="recurring-day" class="w-full border rounded px-3 py-2">
+                        <option value="">-- None --</option>
+                        <option value="Sunday">Sunday</option>
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                        <option value="Saturday">Saturday</option>
+                    </select>
+                    <button onclick="savePayday()" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded font-bold">Save Payday</button>
+                </div>
+            </details>
+
+            <details class="border-t pt-4">
+                <summary class="text-lg font-semibold cursor-pointer select-none">👶 Add a New Child</summary>
+                <div class="space-y-2 mt-2">
+                    <input type="text" id="new-child-name" placeholder="Child Name" class="w-full border rounded px-3 py-2">
+                    <input type="password" id="new-child-pin" maxlength="4" placeholder="4-digit PIN" class="w-full border rounded px-3 py-2">
+                    <button onclick="addChild()" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded font-bold">Add Child</button>
+                </div>
+            </details>
+
+            <details class="border-t pt-4">
+                <summary class="text-lg font-semibold cursor-pointer select-none">👤 Account Settings</summary>
+                <div class="space-y-2 mt-2">
+                    <input type="text" id="parent-new-name" placeholder="Change Name" class="w-full border rounded px-3 py-2">
+                    <input type="email" id="parent-new-email" placeholder="Change Email" class="w-full border rounded px-3 py-2">
+                    <input type="password" id="parent-new-password" placeholder="Change Password" class="w-full border rounded px-3 py-2">
+                    <button class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded font-bold">Update Account</button>
+                </div>
+            </details>
+
+            <div class="pt-4">
+                <button onclick="logout()" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded font-bold">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleSettings() {
+            const panel = document.getElementById('settings-panel');
+            const toggleBtn = document.querySelector('button[onclick="toggleSettings()"]');
+
+            const isOpen = !panel.classList.contains('translate-x-full');
+
+            if (isOpen) {
+                panel.classList.add('translate-x-full');
+                toggleBtn.innerText = "☰"; // Show hamburger
+            } else {
+                panel.classList.remove('translate-x-full');
+                toggleBtn.innerText = "✕"; // Show X icon
+            }
+        }
+
+        function logout() {
+            auth.signOut().then(() => {
+                window.location.href = "index.html";
+            });
+        }
+    </script>
+</body>
+</html>

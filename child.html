@@ -1,0 +1,41 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PiggyChores – My Chores</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="child.js"></script>
+
+</head>
+<body class="bg-blue-50 min-h-screen text-gray-800">
+    <div class="max-w-5xl mx-auto p-6 space-y-6">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-bold">Hi, <span id="child-name">...</span>! 🐷</h1>
+            <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md">
+                Logout
+            </button>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <div class="text-xl font-medium">
+                💰 Total Earned: $<span id="total-earned" class="font-bold text-green-600">0.00</span>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h2 class="text-xl font-semibold mb-2">🧹 Your Chores</h2>
+            <div id="chores-list" class="space-y-4"></div>
+        </div>
+
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h2 class="text-xl font-semibold mb-2">⭐ Available Chores</h2>
+            <div id="available-chores" class="space-y-4"></div>
+        </div>
+
+    </div>
+</body>
+</html>

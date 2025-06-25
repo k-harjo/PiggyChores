@@ -1,0 +1,32 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PiggyChores Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="firebase-config.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-sm">
+        <h1 class="text-2xl font-bold mb-6 text-center">🐷 PiggyChores Login</h1>
+        <input type="email" id="email" placeholder="Email"
+               class="w-full mb-4 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-400">
+        <input type="password" id="password" placeholder="Password"
+               class="w-full mb-4 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-400">
+        <button onclick="login()"
+                class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-4 rounded mb-2">
+            Login
+        </button>
+        <button onclick="signup()"
+                class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded">
+            Sign Up
+        </button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
