@@ -15,14 +15,49 @@
 <body class="bg-blue-50 min-h-screen text-gray-800">
     <div class="max-w-5xl mx-auto p-6 space-y-6">
         <div class="flex justify-between items-center mb-4">
-            <h1 class="text-2xl font-bold">Hi, <span id="child-name">...</span>! 🐷</h1>
-            <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md">
-                Logout
+            <!-- <h1 class="text-2xl font-bold">
+                 <span id="child-icon">🐷</span> Hi, <span id="child-name">...</span>!
+            </h1> -->
+            <!-- Top bar with hamburger -->
+            <div class="bg-white shadow p-4 flex justify-between items-center">
+            <div class="text-2xl font-bold flex items-center gap-2">
+                <span id="child-icon">🐷</span> Hi, <span id="child-name">...</span>!
+            </div>
+            <button id="child-menu-toggle"
+                    onclick="toggleChildSettings()"
+                    class="text-3xl fixed top-3 right-3 z-50 bg-white rounded-full p-1 shadow">
+                ☰
             </button>
+            </div>
+
+            <!-- Sidebar panel -->
+            <div id="child-settings-panel" class="fixed top-0 right-0 w-64 bg-white shadow-lg h-full transform translate-x-full transition-transform duration-300 z-40 overflow-y-auto p-4 space-y-4">
+            <h2 class="text-2xl font-bold">⚙️ My Settings</h2>
+
+            <div>
+                <h3 class="text-lg font-semibold">📊 My Stats</h3>
+                <p id="stat-total-completed" class="text-gray-700">Chores Completed: ...</p>
+                <p id="stat-earned-this-year" class="text-gray-700">Earned This Year: ...</p>
+            </div>
+
+            <details class="border-t pt-4">
+                <summary class="text-lg font-semibold cursor-pointer select-none">🎨 My Color</summary>
+                <div id="color-options" class="flex flex-wrap gap-2 mt-2"></div>
+            </details>
+
+            <details class="border-t pt-4">
+                <summary class="text-lg font-semibold cursor-pointer select-none">🐷 My Piggy Icon</summary>
+                <div id="avatar-options" class="flex flex-wrap gap-2 mt-2"></div>
+            </details>
+
+            <div class="pt-4">
+                <button onclick="logout()" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded font-bold">Log Out</button>
+            </div>
+            </div>
         </div>
         <div class="bg-white p-4 rounded-lg shadow">
             <div class="text-xl font-medium">
-                💰 Total Earned: $<span id="total-earned" class="font-bold text-green-600">0.00</span>
+                🐷 Piggy Bank: $<span id="total-earned" class="font-bold text-green-600">0.00</span>
             </div>
         </div>
 

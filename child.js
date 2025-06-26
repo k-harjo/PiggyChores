@@ -19,9 +19,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("child-name").innerText = childName;
 
+    db.collection("users").doc(childId).get().then(doc => {
+        const data = doc.data();
+        if (data.icon) {
+            const iconSpan = document.getElementById("child-icon");
+            const img = document.createElement("img");
+            img.src = `piggies/${data.icon}`;
+            img.alt = "Avatar";
+            img.className = "w-8 h-8 rounded-full";
+            iconSpan.innerHTML = ""; // Clear emoji
+            iconSpan.appendChild(img);
+        }
+    });
+
     loadChores();
     loadAvailableChores();
+    loadChildStats();
+    renderColorOptions();
+    renderAvatarOptions();
 });
+
 
 
 function loadChores() {
@@ -203,5 +220,137 @@ function returnChore(choreId) {
     });
 }
 
+function toggleChildSettings() {
+    const panel = document.getElementById("child-settings-panel");
+    panel.classList.toggle("translate-x-full");
+}
+
+function loadChildStats() {
+    let completed = 0;
+    let earnedThisYear = 0;
+    const year = new Date().getFullYear();
+
+    db.collection("users").doc(childId).collection("chores")
+        .where("complete", "==", true)
+        .get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                const chore = doc.data();
+                const assignedAt = chore.assignedAt?.toDate?.() || new Date(0);
+                if (assignedAt.getFullYear() === year) {
+                    earnedThisYear += chore.reward;
+                }
+                completed++;
+            });
+
+            document.getElementById("stat-total-completed").innerText = `Chores Completed: ${completed}`;
+            document.getElementById("stat-earned-this-year").innerText = `Earned This Year: $${earnedThisYear.toFixed(2)}`;
+        });
+}
 
 
+const presetColors = [
+    "#FFB6B9", "#FFDAC1", "#E2F0CB", "#B5EAD7",
+    "#C7CEEA", "#F5C7B8", "#F2B5D4", "#C3F2B5"
+];
+
+function renderColorOptions() {
+    const container = document.getElementById("color-options");
+    if (!container) return;
+
+    presetColors.forEach(color => {
+        const btn = document.createElement("button");
+        btn.style.backgroundColor = color;
+        btn.className = "w-8 h-8 rounded-full border-2 border-white shadow hover:scale-110 transition";
+        btn.onclick = () => {
+            db.collection("users").doc(childId).update({ color })
+                .then(() => alert("Color updated!"));
+        };
+        container.appendChild(btn);
+    });
+}
+
+// const piggyIcons = [
+//     "🐷", "🐽", "🎀", "👑", "💎", "🍩", "🐖"
+// ];
+
+// function renderAvatarOptions() {
+//     const container = document.getElementById("avatar-options");
+//     if (!container) return;
+
+//     piggyIcons.forEach(icon => {
+//         const btn = document.createElement("button");
+//         btn.textContent = icon;
+//         btn.className = "text-2xl p-2 border border-gray-300 rounded hover:bg-gray-100";
+//         btn.onclick = () => {
+//             db.collection("users").doc(childId).update({ icon })
+//                 .then(() => alert("Avatar updated!"));
+//         };
+//         container.appendChild(btn);
+//     });
+// }
+
+
+const piggyIcons = [
+    "piggy_dollar_leap.png",
+    "piggy_dollar_smug.png",
+    "piggy_dollar_stand.png",
+    "piggy_onecoin_sideview.png",
+    "piggy_onecoin_smug.png",
+    "piggy_onecoin_walk.png",
+    "piggy_twocoins_broken.png",
+    "piggy_twocoins_closeup.png",
+    "piggy_twocoins_insert.png",
+    "piggy_twocoins_walk.png"
+];
+
+function renderAvatarOptions() {
+    const container = document.getElementById("avatar-options");
+    if (!container) return;
+
+    piggyIcons.forEach(iconFile => {
+        const img = document.createElement("img");
+        img.src = `piggies/${iconFile}`;
+        img.alt = iconFile;
+        img.className = "w-12 h-12 object-contain border border-gray-300 rounded hover:bg-gray-100 p-1 cursor-pointer";
+        img.onclick = () => {
+            db.collection("users").doc(childId).update({ icon: iconFile })
+                .then(() => alert("Avatar updated!"));
+        };
+        container.appendChild(img);
+    });
+}
+
+
+function updateChildColor() {
+    const color = document.getElementById("child-color-picker").value;
+    db.collection("users").doc(childId).update({ color })
+        .then(() => alert("Color updated!"));
+}
+
+function updateChildIcon() {
+    const icon = document.getElementById("child-icon").value;
+    db.collection("users").doc(childId).update({ icon })
+        .then(() => alert("Avatar updated!"));
+}
+
+db.collection("users").doc(childId).get().then(doc => {
+    if (doc.exists) {
+        const data = doc.data();
+        const icon = data.icon;
+        const childName = localStorage.getItem("childName");
+
+        const iconImg = document.createElement("img");
+        iconImg.src = `piggies/${icon}`;
+        iconImg.alt = "Avatar";
+        iconImg.className = "inline w-8 h-8 mr-2 align-middle";
+
+        const greeting = document.createElement("span");
+        greeting.innerText = `Hi, ${childName}!`;
+
+        const nameContainer = document.getElementById("child-name");
+        nameContainer.innerHTML = ""; // Clear any text
+        nameContainer.appendChild(iconImg);
+        nameContainer.appendChild(greeting);
+    }
+});
