@@ -2,6 +2,14 @@
 let childId = "";
 
 document.addEventListener("DOMContentLoaded", function () {
+    auth.onAuthStateChanged(user => {
+        if (!user) {
+            localStorage.removeItem("childId");
+            localStorage.removeItem("childName");
+            window.location.href = "child-login.html";
+        }
+    });
+
     childId = localStorage.getItem("childId");
     const childName = localStorage.getItem("childName");
 
@@ -17,26 +25,43 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 function loadChores() {
+    const choresList = document.getElementById("chores-list");
+    const totalEarnedSpan = document.getElementById("total-earned");    
     let total = 0;
     choresList.innerHTML = "";
 
     db.collection("config").doc("payday").get().then(configDoc => {
-        const paydayDate = configDoc.exists ? configDoc.data().nextPayday.toDate() : new Date(0);
+        let paydayDate = new Date(0);
+        const configData = configDoc.data();
+        if (configData && configData.nextPayday && typeof configData.nextPayday.toDate === "function") {
+            paydayDate = configData.nextPayday.toDate();
+        } else {
+            console.warn("No valid payday set in config.");
+        }
 
-        db.collection("users").doc(childId).collection("chores")
-            .orderBy("assignedAt", "desc")
-            .get()
-            .then(snapshot => {
-                snapshot.forEach(doc => {
-                    const chore = doc.data();
-                    const assignedAt = chore.assignedAt?.toDate?.() || new Date(0);
-                    const isAfterPayday = assignedAt > paydayDate;
+    db.collection("users").doc(childId).collection("chores")
+        .orderBy("assignedAt", "desc")
+        .get()
+        .then(snapshot => {
+            console.log("Loaded chores:", snapshot.size); // ✅ Add this
+            snapshot.forEach(doc => {
+                const chore = doc.data();
+                console.log("Chore:", chore); // ✅ Add this too
 
-                    const div = document.createElement("div");
-                    div.className = `border rounded-lg p-4 bg-white shadow ${chore.complete ? 'bg-green-100 line-through' : ''}`;
-                    if (chore.complete && isAfterPayday) total += chore.reward;
+                let assignedAt = new Date(0);
+                if (chore.assignedAt && typeof chore.assignedAt.toDate === "function") {
+                    assignedAt = chore.assignedAt.toDate();
+                }
+                if (!chore.assignedAt) {
+                   console.warn("Missing 'assignedAt' field in chore:", chore);
+                }
+                const isAfterPayday = assignedAt > paydayDate;
 
-                    div.innerHTML = `
+                const div = document.createElement("div");
+                div.className = `border rounded-lg p-4 bg-white shadow ${chore.complete ? 'bg-green-100 line-through' : ''}`;
+                if (chore.complete && isAfterPayday) total += chore.reward;
+
+                div.innerHTML = `
                     <strong class="text-lg">${chore.chore}</strong><br>
                     Reward: $${chore.reward}<br>
                     Assigned: ${assignedAt.toDateString()}<br>
@@ -46,14 +71,20 @@ function loadChores() {
                         <button class="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded mr-2" onclick="markComplete('${doc.id}')">Mark Complete</button>
                         <button class="mt-2 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded" onclick="returnChore('${doc.id}')">Return</button>
                     ` : ""}
-                    `;
-                    choresList.appendChild(div);
-                });
-
-                totalEarnedSpan.innerText = total.toFixed(2);
+                `;
+                choresList.appendChild(div);
             });
+
+            totalEarnedSpan.innerText = total.toFixed(2);
+        })
+        .catch(error => {
+            console.error("Error loading chores:", error);
+            alert("Failed to load chores: " + error.message);
+        });
     });
 }
+
+
 function claimChore(choreId, reward) {
     console.log("Attempting to claim chore:", choreId);
 
@@ -113,7 +144,13 @@ function loadAvailableChores() {
         snapshot.forEach(doc => {
 
             const chore = doc.data();
-            const assignedAt = chore.assignedAt?.toDate?.() || new Date();
+            let assignedAt = new Date();
+            if (chore.assignedAt && typeof chore.assignedAt.toDate === "function") {
+                assignedAt = chore.assignedAt.toDate();
+            } else {
+                console.warn("Missing or invalid assignedAt in shared chore:", chore);
+            }
+
             console.log("Available shared chore found:", chore.chore);
 
             const div = document.createElement("div");
