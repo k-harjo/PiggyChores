@@ -3,7 +3,7 @@ console.log("✅ parent.js script loaded");
 auth.onAuthStateChanged(user => {
     if (user) {
         const uid = user.uid;
-        loadChoreHistory(); 
+
         // Get parent info
         db.collection("users").doc(uid).get().then(doc => {
             if (doc.exists) {
@@ -20,27 +20,6 @@ auth.onAuthStateChanged(user => {
                 option.text = doc.data().name;
                 select.appendChild(option);
             });
-
-            // ✅ Populate archived chore filter dropdown
-            const historySelect = document.getElementById("history-child-select");
-            if (historySelect) {
-                snapshot.forEach(doc => {
-                    const option = document.createElement("option");
-                    option.value = doc.id;
-                    option.text = doc.data().name;
-                    historySelect.appendChild(option);
-                });
-
-                historySelect.addEventListener("change", () => {
-                    const selectedChildId = historySelect.value;
-                    if (selectedChildId) {
-                        loadArchivedChores(selectedChildId);
-                    } else {
-                        document.getElementById("archived-history-table").innerHTML =
-                            "<p class='text-gray-500'>Select a child to view paid chores.</p>";
-                    }
-                });
-            }
         });
     } else {
         window.location.href = "index.html";
@@ -102,8 +81,8 @@ function assignChore() {
             alert("Error assigning chore: " + error.message);
             assignButton.disabled = false;
         });
-    }
 }
+
 function savePayday() {
     const manualDate = document.getElementById("payday-date").value;
     const recurringDay = document.getElementById("recurring-day").value;
@@ -142,29 +121,6 @@ function savePayday() {
         });
 }
 
-function updateAccount() {
-  const newName = document.getElementById("parent-new-name").value;
-  const newEmail = document.getElementById("parent-new-email").value;
-  const newPassword = document.getElementById("parent-new-password").value;
-
-  const user = auth.currentUser;
-  if (!user) {
-    alert("You must be logged in.");
-    return;
-  }
-
-  if (newName) {
-    db.collection("users").doc(user.uid).update({ name: newName });
-  }
-  if (newEmail) {
-    user.updateEmail(newEmail).catch(err => alert("Email update failed: " + err.message));
-  }
-  if (newPassword) {
-    user.updatePassword(newPassword).catch(err => alert("Password update failed: " + err.message));
-  }
-
-  alert("Account updated!");
-}
 
 window.addChild = function () {
     console.log("🟣 addChild called");
@@ -238,41 +194,21 @@ function loadChoreHistory() {
                 // Step 2: Get that child's completed chores
                 db.collection("users").doc(childId).collection("chores")
                     .where("complete", "==", true)
-                    .where("paid", "==", false) // Only show unpaid chores
                     .orderBy("assignedAt", "desc")
                     .get()
                     .then(choreSnap => {
                         if (choreSnap.empty) return;
 
                         const section = document.createElement("div");
-                        section.className = "mb-8 p-4 bg-white rounded-lg shadow space-y-4";
-                        let childTotal = 0;
-
                         section.innerHTML = `
-                            <h3 class="text-xl font-semibold text-pink-600">${child.name}</h3>
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full text-sm border border-gray-300 rounded">
-                                    <thead class="bg-gray-100">
-                                        <tr>
-                                            <th class="text-left px-4 py-2 border-b">Chore</th>
-                                            <th class="text-left px-4 py-2 border-b">Reward</th>
-                                            <th class="text-left px-4 py-2 border-b">Date</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="chore-rows-${childId}">
-                                    </tbody>
-                                    <tfoot>
-                                        <tr class="bg-gray-50 font-semibold">
-                                            <td class="px-4 py-2 border-t">Total</td>
-                                            <td class="px-4 py-2 border-t" colspan="2">$${childTotal.toFixed(2)}</td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-
-                        `;
-
+              <h3>${child.name}</h3>
+              <table border="1" cellpadding="5">
+                <tr><th>Chore</th><th>Reward</th><th>Date</th></tr>
+              </table>
+            `;
                         const table = section.querySelector("table");
+
+                        let childTotal = 0;
 
                         choreSnap.forEach(choreDoc => {
                             const chore = choreDoc.data();
@@ -281,24 +217,22 @@ function loadChoreHistory() {
 
                             const row = document.createElement("tr");
                             row.innerHTML = `
-                                <td class="px-4 py-2 border-t">${chore.chore}</td>
-                                <td class="px-4 py-2 border-t">$${chore.reward.toFixed(2)}</td>
-                                <td class="px-4 py-2 border-t">${date}</td>
-                            `;
-                            const tbody = section.querySelector(`#chore-rows-${childId}`);
-                            tbody.appendChild(row);
+                <td>${chore.chore}</td>
+                <td>$${chore.reward.toFixed(2)}</td>
+                <td>${date}</td>
+              `;
+                            table.appendChild(row);
                         });
 
                         // Add total row
                         const totalRow = document.createElement("tr");
                         totalRow.innerHTML = `
-                            <td><strong>Total</strong></td>
-                            <td colspan="2"><strong>$${childTotal.toFixed(2)}</strong></td>
-                            `;
+                      <td><strong>Total</strong></td>
+                      <td colspan="2"><strong>$${childTotal.toFixed(2)}</strong></td>
+                    `;
                         table.appendChild(totalRow);
 
                         const payButton = document.createElement("button");
-                        payButton.className = "bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded";
                         payButton.innerText = "Mark as Paid";
                         payButton.onclick = () => recordPayout(childId, child.name, childTotal);
                         section.appendChild(payButton);
@@ -313,81 +247,58 @@ function loadChoreHistory() {
             container.innerHTML = `<p>Error loading chore history: ${error.message}</p>`;
         });
 }
-
-function recordPayout(childId, childName, amount) {
-    const method = prompt(`How did you pay ${childName}? (Cash, Robux, etc.)`);
-    if (!method) {
-        alert("Payment method required.");
-        return;
-    }
-
-    const date = prompt("Enter payment date (YYYY-MM-DD)", new Date().toISOString().split("T")[0]);
-    if (!date) {
-        alert("Payment date required.");
-        return;
-    }
-
-    const payoutDate = new Date(date);
-
-    const childRef = db.collection("users").doc(childId);
-    const choresRef = childRef.collection("chores");
-    const archiveRef = childRef.collection("archived_chores");
-
-    // Add payout record
-    childRef.collection("payouts").add({
-        amount: amount,
-        method: method,
-        date: payoutDate,
-        recordedAt: new Date()
-    }).then(() => {
-        // Now move completed chores to archive
-        return choresRef.where("complete", "==", true).get();
-    }).then(snapshot => {
-        const batch = db.batch();
-
-        snapshot.forEach(doc => {
-            const choreData = doc.data();
-            const choreId = doc.id;
-            const paidAt = new Date();
-
-            // ✅ Add to archive
-            const archivedDoc = archiveRef.doc(choreId);
-            batch.set(archivedDoc, {
-                ...choreData,
-                paid: true,
-                paidAt: paidAt
-            });
-
-            // ✅ Mark as paid (but do NOT delete it)
-            batch.update(choresRef.doc(choreId), {
-                paid: true,
-                paidAt: paidAt
-            });
-        });
-
-        return batch.commit();
-    }).then(() => {
-        alert(`Marked $${amount.toFixed(2)} as paid to ${childName} via ${method}`);
-        loadChoreHistory();
-
-        const dropdown = document.getElementById("history-child-select");
-        if (dropdown && dropdown.value === childId) {
-            loadArchivedChores(childId);
+    function recordPayout(childId, childName, amount) {
+        const method = prompt(`How did you pay ${childName}? (Cash, Robux, etc.)`);
+        if (!method) {
+            alert("Payment method required.");
+            return;
         }
-    }).catch(err => {
-        console.error("Error during payout:", err);
-        alert("Error recording payout: " + err.message);
-    });
+
+        const date = prompt("Enter payment date (YYYY-MM-DD)", new Date().toISOString().split("T")[0]);
+        if (!date) {
+            alert("Payment date required.");
+            return;
+        }
+
+        db.collection("users").doc(childId).collection("payouts").add({
+            amount: amount,
+            method: method,
+            date: new Date(date),
+            recordedAt: new Date()
+        })
+            .then(() => {
+                alert(`Marked $${amount.toFixed(2)} as paid to ${childName} via ${method}`);
+            })
+            .catch(err => {
+                alert("Error recording payout: " + err.message);
+            });
+    }
 }
 
+// Initialize recurrence UI listeners once the DOM is ready
+// document.addEventListener("DOMContentLoaded", function () {
+//     const recurringCheckbox = document.getElementById("is-recurring");
+//     const frequencySelect = document.getElementById("recurring-frequency");
 
+//     if (recurringCheckbox && frequencySelect) {
+//         recurringCheckbox.addEventListener("change", function () {
+//             document.getElementById("recurring-options").classList.toggle("hidden", !this.checked);
+//         });
 
+//         frequencySelect.addEventListener("change", function () {
+//             const showCustom = this.value === "everyXDays";
+//             document.getElementById("custom-interval-container").classList.toggle("hidden", !showCustom);
+//         });
+//     }
+// });
+// FullCalendar Setup
 function setupCalendar() {
     const calendarEl = document.getElementById('calendar');
     if (!calendarEl) {
         console.warn("Calendar container not found.");
         return;
     }
+
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         headerToolbar: {
@@ -407,7 +318,7 @@ window.addEventListener("load", setupCalendar);
 
 function loadChoreEvents(calendar) {
     const colors = {}; // cache child colors
-    
+
     // 1. Get all children and their assigned colors
     db.collection("users").where("role", "==", "child").get()
         .then(snapshot => {
@@ -415,7 +326,7 @@ function loadChoreEvents(calendar) {
             snapshot.forEach(doc => {
                 const child = doc.data();
                 child.id = doc.id;
-                color: chore.paid ? "#D1D5DB" : colors[child.id] // gray if paid
+
                 if (!child.color) {
                     // Assign a random pastel color if missing
                     const randomColor = getRandomColor();
@@ -448,46 +359,9 @@ function loadChoreEvents(calendar) {
                     });
             });
         })
-    // Load payday from config and add it to the calendar
-    db.collection("config").doc("payday").get()
-    .then(doc => {
-        if (!doc.exists) return;
-
-        const data = doc.data();
-        let payday = null;
-
-        if (data.paydayType === "manual" && data.nextPayday && typeof data.nextPayday.toDate === "function") {
-            payday = data.nextPayday.toDate();
-        } else if (data.paydayType === "recurring" && data.dayOfWeek) {
-            // Find the upcoming occurrence of the recurring day
-            const today = new Date();
-            const dayMap = {
-                Sunday: 0,
-                Monday: 1,
-                Tuesday: 2,
-                Wednesday: 3,
-                Thursday: 4,
-                Friday: 5,
-                Saturday: 6
-            };
-            const target = dayMap[data.dayOfWeek];
-            const delta = (target - today.getDay() + 7) % 7;
-            payday = new Date(today);
-            payday.setDate(today.getDate() + delta);
-        }
-
-        if (payday) {
-            calendar.addEvent({
-                title: "💰 Payday",
-                start: payday,
-                allDay: true,
-                color: "#34d399" // nice green
-            });
-        }
-    })
-    .catch(err => {
-        console.error("Error loading payday for calendar:", err);
-    });        
+        .catch(error => {
+            console.error("Error loading calendar chores:", error);
+        });
 }
 
 function getRandomColor() {
@@ -499,51 +373,31 @@ function getRandomColor() {
     return colors[Math.floor(Math.random() * colors.length)];
 }
 
-function loadArchivedChores(childId) {
-    const container = document.getElementById("archived-history-table");
-    container.innerHTML = "<p>Loading archived chores...</p>";
+// document.addEventListener("DOMContentLoaded", function () {
+//   // Wire up Add Child button
+//   const btn = document.getElementById("add-child-button");
+//   if (btn) {
+//     btn.addEventListener("click", window.addChild);
+//   } else {
+//     console.warn("Add Child button not found");
+//   }
 
-    db.collection("users").doc(childId).collection("archived_chores")
-        .orderBy("assignedAt", "desc")
-        .get()
-        .then(snapshot => {
-            if (snapshot.empty) {
-                container.innerHTML = "<p class='text-gray-500'>No archived chores found for this child.</p>";
-                return;
-            }
+//   // Recurring chore UI setup
+//   const recurringCheckbox = document.getElementById("is-recurring");
+//   const frequencySelect = document.getElementById("recurring-frequency");
 
-            let html = `
-                <table class="min-w-full text-sm border border-gray-300 rounded">
-                <thead class="bg-gray-100">
-                    <tr>
-                        <th class="text-left px-4 py-2 border-b">Chore</th>
-                        <th class="text-left px-4 py-2 border-b">Reward</th>
-                        <th class="text-left px-4 py-2 border-b">Assigned</th>
-                        <th class="text-left px-4 py-2 border-b">Paid On</th>
-                    </tr>
-                </thead>
-                    <tbody>
-            `;
+//   if (recurringCheckbox && frequencySelect) {
+//     recurringCheckbox.addEventListener("change", function () {
+//       document
+//         .getElementById("recurring-options")
+//         .classList.toggle("hidden", !this.checked);
+//     });
 
-            snapshot.forEach(doc => {
-                const chore = doc.data();
-                const date = chore.assignedAt?.toDate?.().toDateString() || "Unknown";
-                const paidDate = chore.paidAt?.toDate?.().toDateString() || "Unknown";
-
-            html += `
-                <tr>
-                    <td class="px-4 py-2 border-t">${chore.chore}</td>
-                    <td class="px-4 py-2 border-t">$${chore.reward.toFixed(2)}</td>
-                    <td class="px-4 py-2 border-t">${date}</td>
-                    <td class="px-4 py-2 border-t">${paidDate}</td>
-                </tr>
-            `;
-            });
-
-            html += "</tbody></table>";
-            container.innerHTML = html;
-        })
-        .catch(err => {
-            container.innerHTML = `<p class="text-red-500">Error loading archived chores: ${err.message}</p>`;
-        });
-}
+//     frequencySelect.addEventListener("change", function () {
+//       const showCustom = this.value === "everyXDays";
+//       document
+//         .getElementById("custom-interval-container")
+//         .classList.toggle("hidden", !showCustom);
+//     });
+//   }
+// });

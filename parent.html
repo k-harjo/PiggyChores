@@ -1,18 +1,27 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Parent Dashboard – PiggyChores</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>Parent Dashboard – PiggyChores</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="firebase-config.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
-    <script src="parent.js" defer></script>
+  <!-- Tailwind and other styles -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
+
+  <!-- ✅ Firebase core libraries -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+  <!-- ✅ Your Firebase config (must come before parent.js) -->
+  <script src="firebase-config.js"></script>
+
+  <!-- ✅ FullCalendar JS -->
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+  <!-- ✅ Your main logic script -->
+  <script src="parent.js" defer></script>
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen">
     <div class="bg-white shadow p-4 flex justify-between items-center">
@@ -65,22 +74,35 @@
         </div>
     </section>
 
-    <section class="mt-6">
+    <section class="mt-6 space-y-8">
+        <!-- Completed Chores History -->
         <div class="bg-white p-4 rounded-lg shadow max-w-5xl mx-auto">
-            <h2 class="text-xl font-semibold mb-4">📜 Chore History</h2>
+            <h2 class="text-xl font-semibold mb-4">💰 Unpaid Chores</h2>
             <div id="history-container" class="overflow-x-auto text-sm">
                 Loading...
+            </div>
+        </div>
+
+        <!-- Archived/Paid Chores History -->
+        <div class="bg-white p-4 rounded-lg shadow max-w-5xl mx-auto">
+            <h2 class="text-xl font-semibold mb-4">📜 Archived Chores (Paid)</h2>
+            <label for="history-child-select" class="block font-medium mb-2">Select Child:</label>
+            <select id="history-child-select" class="w-full border rounded px-3 py-2 mb-4">
+                <option value="">-- Select a child --</option>
+            </select>
+            <div id="archived-history-table" class="overflow-x-auto text-sm">
+                <p class="text-gray-500">Select a child to view paid chores.</p>
             </div>
         </div>
     </section>
 
     <div id="settings-panel" class="fixed top-0 right-0 w-64 bg-white shadow-lg h-full transform translate-x-full transition-transform duration-300 z-40 overflow-y-auto">
         <div class="p-6 space-y-4">
-            <h2 class="text-2xl font-bold">⚙️ Settings</h2>
-            <div>
-                <h3 class="text-lg font-semibold">Parent Info</h3>
-                <p id="parent-name" class="text-gray-700"></p>
-            </div>
+        <h2 class="text-2xl font-bold">⚙️ Settings</h2>
+        <div>
+            <h3 class="text-lg font-semibold">Parent Info</h3>
+            <p id="parent-name" class="text-gray-700"></p>
+        </div>
 
             <details class="border-t pt-4">
                 <summary class="text-lg font-semibold cursor-pointer select-none">📅 Set Next Payday</summary>
@@ -105,9 +127,9 @@
             <details class="border-t pt-4">
                 <summary class="text-lg font-semibold cursor-pointer select-none">👶 Add a New Child</summary>
                 <div class="space-y-2 mt-2">
-                    <input type="text" id="new-child-name" placeholder="Child Name" class="w-full border rounded px-3 py-2">
-                    <input type="password" id="new-child-pin" maxlength="4" placeholder="4-digit PIN" class="w-full border rounded px-3 py-2">
-                    <button onclick="addChild()" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded font-bold">Add Child</button>
+                <input type="text" id="new-child-name" placeholder="Child Name" class="w-full border rounded px-3 py-2">
+                <input type="password" id="new-child-pin" maxlength="4" placeholder="4-digit PIN" class="w-full border rounded px-3 py-2">
+                <button id="add-child-button" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded font-bold">Add Child</button>
                 </div>
             </details>
 
@@ -117,7 +139,7 @@
                     <input type="text" id="parent-new-name" placeholder="Change Name" class="w-full border rounded px-3 py-2">
                     <input type="email" id="parent-new-email" placeholder="Change Email" class="w-full border rounded px-3 py-2">
                     <input type="password" id="parent-new-password" placeholder="Change Password" class="w-full border rounded px-3 py-2">
-                    <button class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded font-bold">Update Account</button>
+                    <button onclick="updateAccount()" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded font-bold">Update Account</button>
                 </div>
             </details>
 
@@ -128,26 +150,27 @@
     </div>
 
     <script>
-        function toggleSettings() {
-            const panel = document.getElementById('settings-panel');
-            const toggleBtn = document.querySelector('button[onclick="toggleSettings()"]');
+    function toggleSettings() {
+        const panel = document.getElementById('settings-panel');
+        const toggleBtn = document.querySelector('button[onclick="toggleSettings()"]');
 
-            const isOpen = !panel.classList.contains('translate-x-full');
+        const isOpen = !panel.classList.contains('translate-x-full');
 
-            if (isOpen) {
-                panel.classList.add('translate-x-full');
-                toggleBtn.innerText = "☰"; // Show hamburger
-            } else {
-                panel.classList.remove('translate-x-full');
-                toggleBtn.innerText = "✕"; // Show X icon
-            }
+        if (isOpen) {
+            panel.classList.add('translate-x-full');
+            toggleBtn.innerText = "☰"; // Show hamburger
+        } else {
+            panel.classList.remove('translate-x-full');
+            toggleBtn.innerText = "✕"; // Show X icon
         }
+    }
 
-        function logout() {
-            auth.signOut().then(() => {
-                window.location.href = "index.html";
-            });
-        }
+    function logout() {
+        auth.signOut().then(() => {
+            window.location.href = "index.html";
+        });
+    }
     </script>
+
 </body>
 </html>
