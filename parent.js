@@ -3,7 +3,8 @@ console.log("✅ parent.js script loaded");
 auth.onAuthStateChanged(user => {
     if (user) {
         const uid = user.uid;
-        loadChoreHistory(); 
+        loadChoreHistory();
+
         // Get parent info
         db.collection("users").doc(uid).get().then(doc => {
             if (doc.exists) {
@@ -21,7 +22,7 @@ auth.onAuthStateChanged(user => {
                 select.appendChild(option);
             });
 
-            // ✅ Populate archived chore filter dropdown
+            // Populate archived chore filter dropdown
             const historySelect = document.getElementById("history-child-select");
             if (historySelect) {
                 snapshot.forEach(doc => {
@@ -42,10 +43,15 @@ auth.onAuthStateChanged(user => {
                 });
             }
         });
+
+        // ✅ ADD THIS LINE RIGHT HERE
+        generateRecurringChores();
+
     } else {
         window.location.href = "index.html";
     }
 });
+
 
 function assignChore() {
     const assignButton = document.querySelector("button[onclick='assignChore()']");
@@ -547,3 +553,85 @@ function loadArchivedChores(childId) {
             container.innerHTML = `<p class="text-red-500">Error loading archived chores: ${err.message}</p>`;
         });
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  // existing child button logic...
+
+  const recurringCheckbox = document.getElementById("is-recurring");
+  const recurringOptions = document.getElementById("recurring-options");
+  const frequencySelect = document.getElementById("recurring-frequency");
+  const customIntervalContainer = document.getElementById("custom-interval-container");
+
+  if (recurringCheckbox && recurringOptions) {
+    recurringCheckbox.addEventListener("change", () => {
+      recurringOptions.classList.toggle("hidden", !recurringCheckbox.checked);
+    });
+  }
+
+  if (frequencySelect && customIntervalContainer) {
+    frequencySelect.addEventListener("change", () => {
+      const isCustom = frequencySelect.value === "everyXDays";
+      customIntervalContainer.classList.toggle("hidden", !isCustom);
+    });
+  }
+});
+
+function generateRecurringChores() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // midnight
+
+    db.collection("users").where("role", "==", "child").get().then(snapshot => {
+        snapshot.forEach(childDoc => {
+            const childId = childDoc.id;
+            const choreRef = db.collection("users").doc(childId).collection("chores");
+
+            choreRef.where("recurring", "==", true).get().then(choreSnap => {
+                choreSnap.forEach(doc => {
+                    const chore = doc.data();
+                    const docRef = choreRef.doc(doc.id);
+                    const last = chore.lastGenerated?.toDate?.() || chore.assignedAt?.toDate?.() || new Date(0);
+                    const next = new Date(last);
+
+                    let shouldGenerate = false;
+
+                    switch (chore.frequency) {
+                        case "daily":
+                            next.setDate(last.getDate() + 1);
+                            shouldGenerate = today >= next;
+                            break;
+                        case "weekly":
+                            next.setDate(last.getDate() + 7);
+                            shouldGenerate = today >= next;
+                            break;
+                        case "monthly":
+                            next.setMonth(last.getMonth() + 1);
+                            shouldGenerate = today >= next;
+                            break;
+                        case "everyXDays":
+                            if (chore.interval) {
+                                next.setDate(last.getDate() + parseInt(chore.interval));
+                                shouldGenerate = today >= next;
+                            }
+                            break;
+                    }
+
+                    if (shouldGenerate) {
+                        // Create new chore
+                        choreRef.add({
+                            ...chore,
+                            complete: false,
+                            recurring: false, // don't let copies keep repeating
+                            assignedAt: new Date()
+                        });
+
+                        // Update original lastGenerated
+                        docRef.update({
+                            lastGenerated: new Date()
+                        });
+                    }
+                });
+            });
+        });
+    });
+}
+
