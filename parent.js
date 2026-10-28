@@ -138,7 +138,7 @@ function savePayday() {
         };
     }
 
-    db.collection("config").doc("payday")
+    db.collection("users").doc(parentId).collection("settings").doc("payday")
         .set(paydayData)
         .then(() => {
             alert("Payday settings saved!");
@@ -455,7 +455,7 @@ function loadChoreEvents(calendar) {
             });
         })
     // Load payday from config and add it to the calendar
-    db.collection("config").doc("payday").get()
+    db.collection("users").doc(parentId).collection("settings").doc("payday").get()
     .then(doc => {
         if (!doc.exists) return;
 

@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // A signed-in parent can access only data stored under their own UID.
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId;
+    }
+
+    // Shared top-level configuration is intentionally inaccessible.
+    // Family settings belong under /users/{parentUid}/settings/.
+    match /config/{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
