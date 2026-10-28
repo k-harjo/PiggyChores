@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -26,12 +26,23 @@
 <body class="bg-gray-100 text-gray-800 min-h-screen">
     <div class="bg-white shadow p-4 flex justify-between items-center">
         <h1 class="text-2xl font-bold">🐷 Parent Dashboard</h1>
-        <button id="menu-toggle"
-                onclick="toggleSettings()"
-                class="text-3xl fixed top-3 right-3 z-50 bg-white rounded-full p-1 shadow">
-            ☰
-        </button>
+
+        <div class="flex items-center gap-3">
+            <!-- ✅ Child Login button -->
+            <button onclick="goToChildLogin()"
+                    class="bg-pink-500 hover:bg-pink-600 text-white px-3 py-1.5 rounded font-bold text-sm shadow">
+                🐷 Child Login
+            </button>
+
+            <!-- Existing menu button -->
+            <button id="menu-toggle"
+                    onclick="toggleSettings()"
+                    class="text-3xl bg-white rounded-full p-1 shadow">
+                ☰
+            </button>
+        </div>
     </div>
+
 
     <div class="bg-white p-4 mt-6 rounded-lg shadow max-w-5xl mx-auto">
         <div id="calendar" class="max-h-[600px] overflow-auto text-sm"></div>
@@ -43,7 +54,8 @@
                 <label class="block font-medium">Select Child:</label>
                 <select id="child-select" class="w-full border rounded px-3 py-2">
                     <option value="">-- No One (make public)</option>
-                </select>            </div>
+                </select>
+            </div>
             <div>
                 <label class="block font-medium">Chore:</label>
                 <input type="text" id="chore" class="w-full border rounded px-3 py-2">
@@ -74,8 +86,18 @@
         </div>
     </section>
 
+    <section class="mt-6">
+        <!-- Active Chores -->
+        <div class="bg-white p-4 rounded-lg shadow max-w-5xl mx-auto">
+            <h2 class="text-xl font-semibold mb-4">🧺 Active Chores</h2>
+            <div id="active-chores" class="space-y-3">
+                <p class="text-gray-500">Loading...</p>
+            </div>
+        </div>
+    </section>
+
     <section class="mt-6 space-y-8">
-        <!-- Completed Chores History -->
+        <!-- Completed Unpaid Chores  -->
         <div class="bg-white p-4 rounded-lg shadow max-w-5xl mx-auto">
             <h2 class="text-xl font-semibold mb-4">💰 Unpaid Chores</h2>
             <div id="history-container" class="overflow-x-auto text-sm">
@@ -98,11 +120,11 @@
 
     <div id="settings-panel" class="fixed top-0 right-0 w-64 bg-white shadow-lg h-full transform translate-x-full transition-transform duration-300 z-40 overflow-y-auto">
         <div class="p-6 space-y-4">
-        <h2 class="text-2xl font-bold">⚙️ Settings</h2>
-        <div>
-            <h3 class="text-lg font-semibold">Parent Info</h3>
-            <p id="parent-name" class="text-gray-700"></p>
-        </div>
+            <h2 class="text-2xl font-bold">⚙️ Settings</h2>
+            <div>
+                <h3 class="text-lg font-semibold">Parent Info</h3>
+                <p id="parent-name" class="text-gray-700"></p>
+            </div>
 
             <details class="border-t pt-4">
                 <summary class="text-lg font-semibold cursor-pointer select-none">📅 Set Next Payday</summary>
@@ -127,9 +149,10 @@
             <details class="border-t pt-4">
                 <summary class="text-lg font-semibold cursor-pointer select-none">👶 Add a New Child</summary>
                 <div class="space-y-2 mt-2">
-                <input type="text" id="new-child-name" placeholder="Child Name" class="w-full border rounded px-3 py-2">
-                <input type="password" id="new-child-pin" maxlength="4" placeholder="4-digit PIN" class="w-full border rounded px-3 py-2">
-                <button id="add-child-button" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded font-bold">Add Child</button>
+                    <input type="text" id="new-child-name" placeholder="Child Name" class="w-full border rounded px-3 py-2">
+                    <p class="text-sm text-gray-600">Create a separate Email/Password sign-in for this child in Firebase Authentication, then paste its User UID here.</p>
+                    <input type="text" id="new-child-auth-uid" autocomplete="off" placeholder="Child Firebase Auth UID" class="w-full border rounded px-3 py-2">
+                    <button id="add-child-button" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded font-bold">Add Child</button>
                 </div>
             </details>
 
@@ -150,27 +173,28 @@
     </div>
 
     <script>
-    function toggleSettings() {
-        const panel = document.getElementById('settings-panel');
-        const toggleBtn = document.querySelector('button[onclick="toggleSettings()"]');
+        function toggleSettings() {
+            const panel = document.getElementById('settings-panel');
+            const toggleBtn = document.querySelector('button[onclick="toggleSettings()"]');
 
-        const isOpen = !panel.classList.contains('translate-x-full');
+            const isOpen = !panel.classList.contains('translate-x-full');
 
-        if (isOpen) {
-            panel.classList.add('translate-x-full');
-            toggleBtn.innerText = "☰"; // Show hamburger
-        } else {
-            panel.classList.remove('translate-x-full');
-            toggleBtn.innerText = "✕"; // Show X icon
+            if (isOpen) {
+                panel.classList.add('translate-x-full');
+                toggleBtn.innerText = "☰"; // Show hamburger
+            } else {
+                panel.classList.remove('translate-x-full');
+                toggleBtn.innerText = "✕"; // Show X icon
+            }
         }
-    }
 
-    function logout() {
-        auth.signOut().then(() => {
-            window.location.href = "index.html";
-        });
-    }
+        function logout() {
+            auth.signOut().then(() => {
+                window.location.href = "index.html";
+            });
+        }
     </script>
 
 </body>
 </html>
+
