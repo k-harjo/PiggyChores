@@ -150,8 +150,8 @@
                 <summary class="text-lg font-semibold cursor-pointer select-none">👶 Add a New Child</summary>
                 <div class="space-y-2 mt-2">
                     <input type="text" id="new-child-name" placeholder="Child Name" class="w-full border rounded px-3 py-2">
-                    <p class="text-sm text-gray-600">Create a separate Email/Password sign-in for this child in Firebase Authentication, then paste its User UID here.</p>
-                    <input type="text" id="new-child-auth-uid" autocomplete="off" placeholder="Child Firebase Auth UID" class="w-full border rounded px-3 py-2">
+                    <p class="text-sm text-gray-600">Children use this parent account. A PIN is optional and only helps keep profiles separate on a shared device.</p>
+                    <input type="password" id="new-child-pin" inputmode="numeric" maxlength="4" placeholder="Optional 4-digit PIN" class="w-full border rounded px-3 py-2">
                     <button id="add-child-button" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded font-bold">Add Child</button>
                 </div>
             </details>

@@ -17,6 +17,14 @@ document.addEventListener("DOMContentLoaded", () => {
         childId = localStorage.getItem("childId");
         const childName = localStorage.getItem("childName");
 
+        if (user.uid !== parentId) {
+            localStorage.removeItem("parentId");
+            localStorage.removeItem("childId");
+            localStorage.removeItem("childName");
+            window.location.href = "index.html";
+            return;
+        }
+
         if (!parentId || !childId || !childName) {
             window.location.href = "child-login.html";
             return;
@@ -90,7 +98,7 @@ async function loadMyChores() {
     if (totalEarnedSpan) totalEarnedSpan.innerText = "0.00";
 
     try {
-        // ASSIGNED or COMPLETED chores for this child
+        // Show assigned chores in every review state until they are paid.
         const snap = await choresRef()
             .where("assignedToChildId", "==", childId)
             .orderBy("updatedAt", "desc")
@@ -112,7 +120,7 @@ async function loadMyChores() {
             const rewardCents = Number(chore.rewardCents || 0);
             const status = chore.status || "ASSIGNED";
 
-            // Only count COMPLETED as “earned (unpaid)”
+            // Parent-approved chores are COMPLETED; submissions stay pending.
             if (status === "COMPLETED") totalCents += rewardCents;
 
             const dateText = chore.date || "—";
@@ -121,7 +129,8 @@ async function loadMyChores() {
             div.className = "border rounded-lg p-4 bg-white shadow";
 
             const statusLabel =
-                status === "COMPLETED" ? "✅ Completed" :
+                status === "COMPLETED" ? "✅ Approved — unpaid" :
+                    status === "PENDING_APPROVAL" ? "⏳ Waiting for parent approval" :
                     status === "ASSIGNED" ? "🕒 Assigned" :
                         status;
 
@@ -157,7 +166,7 @@ async function loadMyChores() {
 async function markComplete(choreId) {
     try {
         await choresRef().doc(choreId).update({
-            status: "COMPLETED",
+            status: "PENDING_APPROVAL",
             completedAt: firebase.firestore.FieldValue.serverTimestamp(),
             completedByChildId: childId,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -353,9 +362,7 @@ function logout() {
     localStorage.removeItem("childName");
     localStorage.removeItem("childColor");
     localStorage.removeItem("childIcon");
-    auth.signOut().finally(() => {
-        window.location.href = "child-login.html";
-    });
+    window.location.href = "child-login.html";
 }
 
 /* =========================

@@ -265,9 +265,15 @@ async function loadActiveChores() {
     try {
         const choresRef = db.collection("users").doc(parentId).collection("chores");
 
-        // Active = UNASSIGNED or ASSIGNED (not completed)
+        const childrenSnap = await db.collection("users").doc(parentId).collection("children").get();
+        const childNames = {};
+        childrenSnap.forEach(childDoc => {
+            childNames[childDoc.id] = childDoc.data().name || "Child";
+        });
+
+        // Include submitted chores so the parent can review them here.
         const snap = await choresRef
-            .where("status", "in", ["UNASSIGNED", "ASSIGNED"])
+            .where("status", "in", ["UNASSIGNED", "ASSIGNED", "PENDING_APPROVAL"])
             .orderBy("updatedAt", "desc")
             .get();
 
@@ -280,31 +286,50 @@ async function loadActiveChores() {
 
         snap.forEach(doc => {
             const chore = doc.data();
-
+            const isPending = chore.status === "PENDING_APPROVAL";
             const assignedLabel = chore.assignedToChildId
-                ? `Assigned`
-                : `Public`;
-
+                ? `Assigned to ${childNames[chore.assignedToChildId] || "child"}`
+                : "Available to claim";
             const dollars = (Number(chore.rewardCents || 0) / 100).toFixed(2);
 
             const card = document.createElement("div");
-            card.className = "border rounded-lg p-3 flex items-center justify-between gap-3";
+            card.className = "border rounded-lg p-3 flex flex-wrap items-center justify-between gap-3";
 
-            card.innerHTML = `
-        <div class="flex-1">
-          <div class="font-semibold">${chore.title || "Untitled"}</div>
-          <div class="text-sm text-gray-600">
-            $${dollars} • ${assignedLabel} • ${chore.date || ""}
-          </div>
-        </div>
+            const details = document.createElement("div");
+            details.className = "flex-1 min-w-[12rem]";
+            const title = document.createElement("div");
+            title.className = "font-semibold";
+            title.textContent = chore.title || "Untitled";
+            const meta = document.createElement("div");
+            meta.className = "text-sm text-gray-600";
+            meta.textContent = `$${dollars} • ${assignedLabel} • ${chore.date || ""}`;
+            details.append(title, meta);
+            card.appendChild(details);
 
-        <button
-          class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
-          onclick="deleteChore('${doc.id}')"
-        >
-          🗑 Delete
-        </button>
-      `;
+            if (isPending) {
+                const label = document.createElement("div");
+                label.className = "w-full text-amber-700 font-medium";
+                label.textContent = `Needs approval from ${childNames[chore.assignedToChildId] || "a child"}`;
+                card.appendChild(label);
+
+                const approve = document.createElement("button");
+                approve.className = "bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded";
+                approve.textContent = "Approve";
+                approve.addEventListener("click", () => reviewChore(doc.id, true));
+                card.appendChild(approve);
+
+                const returnButton = document.createElement("button");
+                returnButton.className = "bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded";
+                returnButton.textContent = "Needs more work";
+                returnButton.addEventListener("click", () => reviewChore(doc.id, false));
+                card.appendChild(returnButton);
+            }
+
+            const deleteButton = document.createElement("button");
+            deleteButton.className = "bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded";
+            deleteButton.textContent = "🗑 Delete";
+            deleteButton.addEventListener("click", () => deleteChore(doc.id));
+            card.appendChild(deleteButton);
 
             container.appendChild(card);
         });
@@ -313,6 +338,43 @@ async function loadActiveChores() {
         container.innerHTML = `<p class='text-red-500'>Error loading chores: ${err.message}</p>`;
     }
 }
+
+async function reviewChore(choreId, approved) {
+    if (!parentId) return;
+
+    const choreRef = db.collection("users").doc(parentId).collection("chores").doc(choreId);
+    try {
+        await db.runTransaction(async transaction => {
+            const snapshot = await transaction.get(choreRef);
+            if (!snapshot.exists || snapshot.data().status !== "PENDING_APPROVAL") {
+                throw new Error("This chore is no longer waiting for approval. Refresh and try again.");
+            }
+
+            const update = {
+                status: approved ? "COMPLETED" : "ASSIGNED",
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            if (approved) {
+                update.approvedAt = firebase.firestore.FieldValue.serverTimestamp();
+                update.approvedByParentId = parentId;
+            } else {
+                update.completedAt = firebase.firestore.FieldValue.delete();
+                update.completedByChildId = firebase.firestore.FieldValue.delete();
+                update.approvedAt = firebase.firestore.FieldValue.delete();
+                update.approvedByParentId = firebase.firestore.FieldValue.delete();
+            }
+
+            transaction.update(choreRef, update);
+        });
+
+        await Promise.all([loadActiveChores(), loadChoreHistory()]);
+    } catch (err) {
+        console.error("reviewChore error:", err);
+        alert(err.message || "Could not update this chore.");
+    }
+}
+
 function loadChoreHistory() {
     const container = document.getElementById("history-container");
     if (!container) return;
@@ -451,18 +513,18 @@ window.addChild = function () {
     console.log("🟣 addChild called");
 
     const nameInput = document.getElementById("new-child-name");
-    const authUidInput = document.getElementById("new-child-auth-uid");
+    const pinInput = document.getElementById("new-child-pin");
 
-    if (!nameInput || !authUidInput) {
-        alert("Child name or account UID input not found.");
+    if (!nameInput || !pinInput) {
+        alert("Child name or PIN input not found.");
         return;
     }
 
     const name = nameInput.value.trim();
-    const authUid = authUidInput.value.trim();
+    const pin = pinInput.value.trim();
 
-    if (!name || !authUid) {
-        alert("Please enter a child name and Firebase Auth UID.");
+    if (!name || (pin && !/^\d{4}$/.test(pin))) {
+        alert("Enter a child name and, if desired, a 4-digit PIN.");
         return;
     }
 
@@ -474,10 +536,9 @@ window.addChild = function () {
     db.collection("users")
         .doc(parentId)
         .collection("children")
-        .doc(authUid)
-        .set({
+        .add({
             name,
-            authUid,
+            ...(pin ? { pin } : {}),
             icon: "piggy_onecoin_smug.png", // optional default
             color: "#B5EAD7",               // optional default
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -485,7 +546,7 @@ window.addChild = function () {
     .then(() => {
         alert("Child added!");
         nameInput.value = "";
-        authUidInput.value = "";
+        pinInput.value = "";
         location.reload();
     })
     .catch(err => {

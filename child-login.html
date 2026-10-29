@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>PiggyChores – Child Login</title>
+    <title>PiggyChores – Choose a Child</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -12,65 +12,111 @@
 </head>
 <body class="bg-pink-50 min-h-screen flex items-center justify-center text-gray-800 p-4">
     <main class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-        <h1 class="text-2xl font-bold mb-2 text-center">🐷 Child Sign In</h1>
-        <p class="text-sm text-gray-600 mb-5 text-center">Ask a parent for your family code and sign-in details.</p>
-        <form id="child-login-form" class="space-y-3">
-            <label class="block text-left text-sm font-medium" for="family-code">Family code</label>
-            <input id="family-code" class="w-full border rounded px-3 py-2" autocomplete="username" required>
-            <label class="block text-left text-sm font-medium" for="child-email">Email</label>
-            <input id="child-email" type="email" class="w-full border rounded px-3 py-2" autocomplete="username" required>
-            <label class="block text-left text-sm font-medium" for="child-password">Password</label>
-            <input id="child-password" type="password" class="w-full border rounded px-3 py-2" autocomplete="current-password" required>
-            <button id="login-button" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 rounded-lg" type="submit">Sign In</button>
-            <p id="login-error" class="text-red-600 text-sm" role="alert"></p>
-        </form>
+        <h1 class="text-2xl font-bold mb-2 text-center">🐷 Who’s doing chores?</h1>
+        <p class="text-sm text-gray-600 mb-5 text-center">Choose your profile. A parent must be signed in on this device.</p>
+        <div id="child-profiles" class="grid gap-3" aria-live="polite">Loading profiles…</div>
+        <p id="login-error" class="text-red-600 text-sm mt-3" role="alert"></p>
+        <button class="mt-5 text-sm text-gray-600 underline" onclick="parentSignOut()">Sign out of parent account</button>
     </main>
     <script>
-        const form = document.getElementById("child-login-form");
+        const profiles = document.getElementById("child-profiles");
         const errorMessage = document.getElementById("login-error");
-        const loginButton = document.getElementById("login-button");
 
-        // Do not carry a parent's session onto the child device.
-        const clearPreviousSession = auth.signOut().catch(error => {
-            console.error("Could not clear prior session:", error);
-        });
-
-        form.addEventListener("submit", async event => {
-            event.preventDefault();
-            errorMessage.textContent = "";
-            loginButton.disabled = true;
-            loginButton.textContent = "Signing in…";
-
-            const parentId = document.getElementById("family-code").value.trim();
-            const email = document.getElementById("child-email").value.trim();
-            const password = document.getElementById("child-password").value;
+        auth.onAuthStateChanged(async user => {
+            if (!user) {
+                window.location.href = "index.html";
+                return;
+            }
 
             try {
-                await clearPreviousSession;
-                const credential = await auth.signInWithEmailAndPassword(email, password);
-                const childDoc = await db.collection("users")
-                    .doc(parentId)
-                    .collection("children")
-                    .doc(credential.user.uid)
-                    .get();
-
-                if (!childDoc.exists || childDoc.data().authUid !== credential.user.uid) {
+                const parentProfile = await db.collection("users").doc(user.uid).get();
+                if (!parentProfile.exists || parentProfile.data().role !== "parent") {
+                    errorMessage.textContent = "Sign in with the parent account to choose a child profile.";
                     await auth.signOut();
-                    throw new Error("This account is not linked to that family. Ask a parent to check the family code and account UID.");
+                    window.location.href = "index.html";
+                    return;
                 }
 
-                const child = childDoc.data();
-                localStorage.setItem("parentId", parentId);
-                localStorage.setItem("childId", childDoc.id);
-                localStorage.setItem("childName", child.name || "");
-                window.location.href = "child.html";
+                const snapshot = await db.collection("users")
+                    .doc(user.uid)
+                    .collection("children")
+                    .get();
+
+                profiles.innerHTML = "";
+                if (snapshot.empty) {
+                    profiles.innerHTML = "<p class='text-gray-500 text-center'>No child profiles yet. Ask a parent to add one.</p>";
+                    return;
+                }
+
+                snapshot.forEach(childDoc => {
+                    const child = childDoc.data();
+                    const card = document.createElement("div");
+                    card.className = "rounded-lg border p-3 flex gap-3 items-center";
+
+                    const name = document.createElement("span");
+                    name.className = "font-semibold flex-1";
+                    name.textContent = child.name || "Unnamed";
+                    card.appendChild(name);
+
+                    if (child.pin) {
+                        const pin = document.createElement("input");
+                        pin.type = "password";
+                        pin.inputMode = "numeric";
+                        pin.maxLength = 4;
+                        pin.placeholder = "PIN";
+                        pin.setAttribute("aria-label", `${child.name || "Child"} PIN`);
+                        pin.className = "w-20 border rounded px-2 py-2 text-center";
+                        card.appendChild(pin);
+
+                        const button = makeChooseButton(() => {
+                            if (pin.value !== String(child.pin)) {
+                                errorMessage.textContent = "That PIN doesn’t match. Try again.";
+                                pin.focus();
+                                return;
+                            }
+                            chooseProfile(user.uid, childDoc.id, child.name);
+                        });
+                        card.appendChild(button);
+                        pin.addEventListener("keydown", event => {
+                            if (event.key === "Enter") button.click();
+                        });
+                    } else {
+                        card.appendChild(makeChooseButton(() => chooseProfile(user.uid, childDoc.id, child.name)));
+                    }
+
+                    profiles.appendChild(card);
+                });
             } catch (error) {
-                errorMessage.textContent = error.message || "Could not sign in. Check the details and try again.";
-            } finally {
-                loginButton.disabled = false;
-                loginButton.textContent = "Sign In";
+                console.error("Could not load child profiles:", error);
+                profiles.textContent = "Could not load profiles. Check the connection and try again.";
             }
         });
+
+        function makeChooseButton(onClick) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = "Choose";
+            button.className = "bg-pink-500 hover:bg-pink-600 text-white font-bold px-4 py-2 rounded";
+            button.addEventListener("click", onClick);
+            return button;
+        }
+
+        function chooseProfile(parentId, childId, name) {
+            errorMessage.textContent = "";
+            localStorage.setItem("parentId", parentId);
+            localStorage.setItem("childId", childId);
+            localStorage.setItem("childName", name || "");
+            window.location.href = "child.html";
+        }
+
+        function parentSignOut() {
+            auth.signOut().then(() => {
+                localStorage.removeItem("parentId");
+                localStorage.removeItem("childId");
+                localStorage.removeItem("childName");
+                window.location.href = "index.html";
+            });
+        }
     </script>
 </body>
 </html>

@@ -15,7 +15,7 @@ changes should be preserved while making incremental repairs.
 ## First version
 
 - Parent signs in and manages child profiles.
-- Each child has restricted access separate from the parent's session.
+- Child chooses a profile within the signed-in parent's session; a PIN is optional.
 - Parent creates a chore with an amount and assigns it to a child.
 - Child submits the chore for approval.
 - Parent approves it or returns it for more work.
@@ -33,28 +33,36 @@ Inspect the deployed Firebase Authentication configuration and Firestore rules
 before selecting the child sign-in mechanism. Those settings are not included
 in this checkout.
 
-Replace the child flow that reuses the parent's Firebase session. The current
-setup uses a separate Email/Password account per child, with the Firebase Auth
-UID as the child profile document ID. The parent creates the Auth account in
-the Firebase Console, then links its UID in the parent screen. Children enter
-the parent's Firebase Auth UID as their family code. Enforce household
-membership and chore permissions in Firestore rules, not browser state.
-Readable PINs are not used; child accounts must not be linked to profiles that
-still contain a legacy `pin` field.
+Children use the parent's signed-in session and choose a profile in the app.
+An optional profile PIN is a convenience prompt, not a separate Firebase
+security boundary; Firestore sees the parent for all profile actions. There is
+no child Firebase account setup or family code.
 
 Add Firebase project, hosting, rules, and emulator configuration to source
 control. Verify that a child cannot read private parent data, change rewards,
 approve work, record payments, or access another child's private data.
 
+Run the current Firestore access checks locally with `npm install` followed by
+`npm run test:rules`. The first run downloads the Firestore emulator. These
+checks use the demo project ID and do not connect to the live Firebase project.
+For an app preview isolated from live accounts and data, run
+`npx firebase emulators:start --project demo-piggychores`. The configured Auth,
+Firestore, and Hosting emulators start together.
+
+Firebase Hosting is configured to serve only the `public/` folder. It contains
+the app pages, scripts, Firebase web config, and piggy images. The default CLI
+project alias is `piggychores`; no Hosting or Firestore deployment has been run.
+
 ### 2. Complete the chore cycle
 
 Use explicit states:
 
-`ASSIGNED -> PENDING_APPROVAL -> APPROVED -> PAID`
+`ASSIGNED -> PENDING_APPROVAL -> COMPLETED (approved and unpaid) -> PAID`
 
-Parent rejection returns pending work to `ASSIGNED`. Only the assigned child
-can submit work; only a parent can approve or pay. Guard transitions against
-duplicate taps and concurrent updates.
+Returning pending work sends it back to `ASSIGNED`. Children submit work;
+parents approve it before it counts toward unpaid earnings. Parent review uses
+a transaction so a stale or repeated approval cannot review the same chore
+twice.
 
 Compute unpaid earnings from approved, unpaid work. Record payments and the
 corresponding chore changes atomically so retries cannot pay the same work
@@ -83,17 +91,17 @@ cycle is working.
 ## Current checkout
 
 The app consists of HTML pages and browser JavaScript using Firebase Auth and
-Firestore. It loads Firebase and Tailwind from CDNs. There is currently no
-checked-in package manifest, automated test setup, Firebase deployment
-configuration, or emulator setup. A Firestore rules file is checked in with
-parent access plus limited child access for linked child accounts.
+Firestore. It loads Firebase and Tailwind from CDNs. Firebase Hosting is
+configured for `public/`; Firebase Hosting and Firestore have not been
+deployed. The project includes Firestore rules, emulator setup, and a rule test
+suite. The rules grant each signed-in account access to its own household data;
+the app uses the parent's account for all child profile actions.
 
 Known issues from initial inspection:
 
 - `app.js` defines `login()` twice.
-- Child login now uses a separate Firebase account and a parent UID family code.
-- Child profiles with legacy `pin` fields are denied child access until the
-  parent removes the field.
+- Children use profiles within the parent session; optional PINs are checked
+  in the app and do not restrict Firebase data access.
 - Child completion immediately counts as earnings without parent approval.
 - Live Firebase configuration is embedded in the app; use emulators or a
   separate test project when exercising writes during development.
