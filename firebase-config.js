@@ -1,4 +1,4 @@
-﻿// firebase-config.js
+// firebase-config.js
 var firebaseConfig = {
   apiKey: "AIzaSyArwhLg0mgUW2JC5gcaaO_HGZ4tdtU5ohM",
   authDomain: "piggychores.firebaseapp.com",
@@ -15,3 +15,10 @@ firebase.initializeApp(firebaseConfig);
 // ✅ Expose to all other scripts safely
 window.auth = firebase.auth();
 window.db = firebase.firestore();
+
+// Keep local app previews isolated from live family accounts and data.
+if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+  window.auth.useEmulator("http://127.0.0.1:9099");
+  window.db.useEmulator("127.0.0.1", 8081);
+}
+

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PiggyChores – Choose a Child</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="firebase-config.js"></script>
+</head>
+<body class="bg-pink-50 min-h-screen flex items-center justify-center text-gray-800 p-4">
+    <main class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+        <h1 class="text-2xl font-bold mb-2 text-center">🐷 Who’s doing chores?</h1>
+        <p class="text-sm text-gray-600 mb-5 text-center">Choose your profile. A parent must be signed in on this device.</p>
+        <div id="child-profiles" class="grid gap-3" aria-live="polite">Loading profiles…</div>
+        <p id="login-error" class="text-red-600 text-sm mt-3" role="alert"></p>
+        <button class="mt-5 text-sm text-gray-600 underline" onclick="parentSignOut()">Sign out of parent account</button>
+    </main>
+    <script>
+        const profiles = document.getElementById("child-profiles");
+        const errorMessage = document.getElementById("login-error");
+
+        auth.onAuthStateChanged(async user => {
+            if (!user) {
+                window.location.href = "index.html";
+                return;
+            }
+
+            try {
+                const parentProfile = await db.collection("users").doc(user.uid).get();
+                if (!parentProfile.exists || parentProfile.data().role !== "parent") {
+                    errorMessage.textContent = "Sign in with the parent account to choose a child profile.";
+                    await auth.signOut();
+                    window.location.href = "index.html";
+                    return;
+                }
+
+                const snapshot = await db.collection("users")
+                    .doc(user.uid)
+                    .collection("children")
+                    .get();
+
+                profiles.innerHTML = "";
+                if (snapshot.empty) {
+                    profiles.innerHTML = "<p class='text-gray-500 text-center'>No child profiles yet. Ask a parent to add one.</p>";
+                    return;
+                }
+
+                snapshot.forEach(childDoc => {
+                    const child = childDoc.data();
+                    const card = document.createElement("div");
+                    card.className = "rounded-lg border p-3 flex gap-3 items-center";
+
+                    const name = document.createElement("span");
+                    name.className = "font-semibold flex-1";
+                    name.textContent = child.name || "Unnamed";
+                    card.appendChild(name);
+
+                    if (child.pin) {
+                        const pin = document.createElement("input");
+                        pin.type = "password";
+                        pin.inputMode = "numeric";
+                        pin.maxLength = 4;
+                        pin.placeholder = "PIN";
+                        pin.setAttribute("aria-label", `${child.name || "Child"} PIN`);
+                        pin.className = "w-20 border rounded px-2 py-2 text-center";
+                        card.appendChild(pin);
+
+                        const button = makeChooseButton(() => {
+                            if (pin.value !== String(child.pin)) {
+                                errorMessage.textContent = "That PIN doesn’t match. Try again.";
+                                pin.focus();
+                                return;
+                            }
+                            chooseProfile(user.uid, childDoc.id, child.name);
+                        });
+                        card.appendChild(button);
+                        pin.addEventListener("keydown", event => {
+                            if (event.key === "Enter") button.click();
+                        });
+                    } else {
+                        card.appendChild(makeChooseButton(() => chooseProfile(user.uid, childDoc.id, child.name)));
+                    }
+
+                    profiles.appendChild(card);
+                });
+            } catch (error) {
+                console.error("Could not load child profiles:", error);
+                profiles.textContent = "Could not load profiles. Check the connection and try again.";
+            }
+        });
+
+        function makeChooseButton(onClick) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = "Choose";
+            button.className = "bg-pink-500 hover:bg-pink-600 text-white font-bold px-4 py-2 rounded";
+            button.addEventListener("click", onClick);
+            return button;
+        }
+
+        function chooseProfile(parentId, childId, name) {
+            errorMessage.textContent = "";
+            localStorage.setItem("parentId", parentId);
+            localStorage.setItem("childId", childId);
+            localStorage.setItem("childName", name || "");
+            window.location.href = "child.html";
+        }
+
+        function parentSignOut() {
+            auth.signOut().then(() => {
+                localStorage.removeItem("parentId");
+                localStorage.removeItem("childId");
+                localStorage.removeItem("childName");
+                window.location.href = "index.html";
+            });
+        }
+    </script>
+</body>
+</html>
+
